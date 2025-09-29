@@ -1546,3 +1546,456 @@ $lock = new LockGuard($this->file_pointer, LOCK_EX);
 ---
 
 If you want, I can draft a lean `FileStream` + `RetryStream` that directly refactors your `FilePointerX` into this pattern (with the smarter retry/position/option persistence baked in) and keep method names close so it’s a low-effort drop-in.
+
+
+
+
+tell me more about teeStream?
+can't we mirror streams to multiple (more than 2) locations at once?
+
+
+
+totally—you can (and usually should) tee to **N** outputs, not just two. Think of “tee” as a **write-fanout** (and sometimes a read-tap) decorator:
+
+* **Write-tee**: you write once → it writes the same bytes to many sinks.
+* **Read-tee**: you read from a source → it *also* copies the bytes you just read into one or more sinks (e.g., logging/archiving).
+
+Below is a practical, usage-first guide plus an implementation sketch you can drop in.
+
+---
+
+# When to use a Tee
+
+* **Audit/logging**: save the upload to disk *and* append to an audit log.
+* **Redundant storage**: write to two local disks + a remote target.
+* **Live metrics**: count or hash data on the fly while passing it through.
+
+---
+
+# Recommended shape
+
+Have **two separate decorators**:
+
+* `TeeWriter` → implements `WritableStreamInterface`, takes **N sinks** (Writable).
+* `TeeReader` → implements `ReadableStreamInterface` (wraps a Readable) and mirrors reads into **N sinks**.
+
+Both accept policies so you control behavior when one sink is slow or fails.
+
+### Failure / consistency policies (pick one)
+
+* `fail_fast` (all-or-nothing): if any sink fails/short-writes → throw, nothing is silently lost.
+* `best_effort`: write as much as possible to each sink; collect/report errors (don’t throw by default).
+* `quorum(k)`: require ≥ k sinks to succeed; otherwise throw.
+
+### Other knobs
+
+* `chunkSize` (default 64–256 KB): split large writes so partial-write retries are manageable.
+* `flush_on_write` (bool): call `flush()` after each write (safer but slower).
+* `close_policy`: `close_all` (default) or `leave_open` (caller owns sinks).
+* `onEvent(callable)` hook for logging (`open`, `write_ok`, `write_err`, `flush_err`, etc.).
+
+---
+
+# Usage examples
+
+### 1) Write once → 3 destinations
+
+```php
+use Orryv\X\Stream\{FileStream, RetryStream, TeeWriter};
+
+// Make resilient sinks
+$primary = new RetryStream(new FileStream('/data/out/main.bin', 'c+b'));
+$mirror1 = new RetryStream(new FileStream('/data/out/mirror1.bin', 'c+b'));
+$mirror2 = new RetryStream(new FileStream('/backup/out/mirror2.bin', 'c+b'));
+
+// Fan out writes to all three
+$tee = new TeeWriter([$primary, $mirror1, $mirror2], policy: 'fail_fast');
+
+$src = new FileStream('/tmp/in.bin', 'rb');
+while (!$src->eof()) {
+    $tee->write($src->read(1024 * 1024)); // 1MB chunks
+}
+$tee->flush();
+$tee->close();   // closes all sinks (close_policy default)
+$src->close();
+```
+
+### 2) Read from one → tee reads into a side log
+
+```php
+use Orryv\X\Stream\{FileStream, TeeReader, FileStream as SinkFile};
+
+$src = new FileStream('/var/log/app.log', 'rb');
+// log file reads to an audit trail
+$audit = new SinkFile('/var/log/app.log.read.audit', 'ab');
+
+$tap = new TeeReader($src, [$audit]); // data you read also goes to $audit
+
+while (!$tap->eof()) {
+    $chunk = $tap->read(8192);
+    // ... parse the log chunk ...
+}
+$tap->close();   // closes $src; leaves audit open by default
+$audit->close();
+```
+
+### 3) Best-effort tee (don’t fail the request if a mirror goes down)
+
+```php
+$tee = new TeeWriter([$primary, $mirror1, $mirror2], policy: 'best_effort', onEvent: function($ev, $ctx) {
+    if ($ev === 'write_err') {
+        error_log("Tee sink failed: {$ctx['index']} {$ctx['error']}");
+    }
+});
+```
+
+### 4) Quorum tee (require at least 2/3 sinks succeed)
+
+```php
+$tee = new TeeWriter([$primary, $mirror1, $mirror2], policy: ['quorum' => 2]);
+```
+
+### 5) Buffering to avoid back-pressure from a slow sink
+
+If one sink is slow, the tee will be as slow as the **slowest** sink. Two strategies:
+
+* **Userland buffering**: wrap slow sinks in `BufferedStream` with a large buffer.
+* **Stage to temp, then fan-out**: write once to a `TempStream`, then copy to each sink in separate steps (most predictable in PHP’s synchronous model).
+
+```php
+$staged = new TempStream(limitBytes: 50_000_000); // 50MB in RAM then spill to disk
+
+// stage write
+while (!$src->eof()) {
+    $staged->write($src->read(1<<20));
+}
+$staged->seek(0);
+
+// then copy staged → each sink with RetryStream, independently
+foreach ([$primary, $mirror1, $mirror2] as $sink) {
+    $staged->seek(0);
+    while (!$staged->eof()) {
+        $sink->write($staged->read(1<<20));
+    }
+    $sink->flush();
+}
+$staged->close();
+```
+
+---
+
+# Implementation sketch (supports **N** sinks)
+
+Below is a compact version that handles:
+
+* partial writes per sink,
+* `fail_fast` / `best_effort` / `quorum(k)`,
+* flushing/closing policy.
+
+```php
+namespace Orryv\X\Stream;
+
+final class TeeWriter implements WritableStreamInterface
+{
+    /** @var WritableStreamInterface[] */
+    private array $sinks;
+    private string $policyType;   // 'fail_fast' | 'best_effort' | 'quorum'
+    private int $quorumK = 0;
+    private int $chunkSize;
+    private bool $flushOnWrite;
+    private string $closePolicy;  // 'close_all' | 'leave_open'
+    private $onEvent;
+
+    /**
+     * @param WritableStreamInterface[] $sinks
+     * @param 'fail_fast'|array{quorum:int}|'best_effort' $policy
+     */
+    public function __construct(
+        array $sinks,
+        $policy = 'fail_fast',
+        int $chunkSize = 256_000,
+        bool $flushOnWrite = false,
+        string $closePolicy = 'close_all',
+        ?callable $onEvent = null
+    ) {
+        if (empty($sinks)) throw new \InvalidArgumentException('Tee needs at least one sink');
+        $this->sinks = array_values($sinks);
+        $this->chunkSize = $chunkSize;
+        $this->flushOnWrite = $flushOnWrite;
+        $this->closePolicy = $closePolicy;
+        $this->onEvent = $onEvent;
+
+        if (is_array($policy) && isset($policy['quorum'])) {
+            $this->policyType = 'quorum';
+            $this->quorumK = (int)$policy['quorum'];
+            if ($this->quorumK < 1 || $this->quorumK > count($sinks)) {
+                throw new \InvalidArgumentException('Invalid quorum size');
+            }
+        } elseif ($policy === 'best_effort') {
+            $this->policyType = 'best_effort';
+        } else {
+            $this->policyType = 'fail_fast';
+        }
+    }
+
+    public function write(string $data): int
+    {
+        $len = strlen($data);
+        if ($len === 0) return 0;
+
+        $offset = 0;
+        while ($offset < $len) {
+            $chunk = substr($data, $offset, $this->chunkSize);
+            $need = strlen($chunk);
+
+            $ok = 0;
+            $errors = [];
+
+            foreach ($this->sinks as $i => $sink) {
+                $written = 0;
+                try {
+                    // loop until this sink writes the whole chunk
+                    while ($written < $need) {
+                        $w = $sink->write(substr($chunk, $written));
+                        if ($w === 0) { // avoid infinite loop
+                            throw new \RuntimeException('Short write (0 bytes)');
+                        }
+                        $written += $w;
+                    }
+                    if ($this->flushOnWrite) $sink->flush();
+                    $ok++;
+                    $this->emit('write_ok', ['index' => $i, 'bytes' => $need]);
+                } catch (\Throwable $e) {
+                    $errors[] = ['index' => $i, 'error' => $e];
+                    $this->emit('write_err', ['index' => $i, 'error' => $e->getMessage()]);
+                    if ($this->policyType === 'fail_fast') {
+                        throw $e;
+                    }
+                }
+            }
+
+            if ($this->policyType === 'quorum' && $ok < $this->quorumK) {
+                $first = $errors[0]['error'] ?? new \RuntimeException('Quorum not met');
+                throw $first;
+            }
+
+            $offset += $need;
+        }
+
+        return $len;
+    }
+
+    public function flush(): void
+    {
+        $errs = [];
+        foreach ($this->sinks as $i => $s) {
+            try { $s->flush(); $this->emit('flush_ok', ['index' => $i]); }
+            catch (\Throwable $e) { $errs[] = $e; $this->emit('flush_err', ['index' => $i, 'error' => $e->getMessage()]); }
+        }
+        if ($this->policyType === 'fail_fast' && $errs) throw $errs[0];
+        if ($this->policyType === 'quorum' && count($this->sinks) - count($errs) < $this->quorumK) throw $errs[0] ?? new \RuntimeException('Quorum not met on flush');
+        // best_effort swallows (but you logged via onEvent)
+    }
+
+    public function close(): void
+    {
+        if ($this->closePolicy !== 'close_all') return;
+        foreach ($this->sinks as $i => $s) {
+            try { $s->close(); $this->emit('close_ok', ['index' => $i]); }
+            catch (\Throwable $e) { $this->emit('close_err', ['index' => $i, 'error' => $e->getMessage()]); }
+        }
+    }
+
+    public function getSize(): ?int { return null; }
+    public function tell(): int { throw new \LogicException('TeeWriter has no position'); }
+    public function eof(): bool { return false; }
+    public function getMetadata(?string $key = null): mixed { return null; }
+
+    private function emit(string $event, array $ctx): void
+    {
+        if ($this->onEvent) { ($this->onEvent)($event, $ctx); }
+    }
+}
+```
+
+> Notes:
+>
+> * This version is **serial** (writes to sinks one by one). In PHP land that’s the norm; “parallel” would need processes or extensions.
+> * For performance, keep `chunkSize` moderately large (128–512 KB).
+> * With `fail_fast`, all sinks are kept consistent or you fail immediately. With `best_effort`, you accept divergence (log it!).
+
+---
+
+# TeeReader sketch (tap reads into sinks)
+
+```php
+final class TeeReader implements ReadableStreamInterface, SeekableStreamInterface
+{
+    public function __construct(
+        private ReadableStreamInterface $source,
+        /** @var WritableStreamInterface[] */
+        private array $sinks,
+        private int $chunkSize = 256_000,
+        private string $policy = 'best_effort',
+        private ?callable $onEvent = null
+    ) {}
+
+    public function read(int $length): string
+    {
+        $data = $this->source->read($length);
+        if ($data === '') return $data;
+
+        $errs = [];
+        foreach ($this->sinks as $i => $sink) {
+            try { $sink->write($data); $this->emit('mirror_ok', ['index' => $i, 'bytes' => strlen($data)]); }
+            catch (\Throwable $e) {
+                $errs[] = $e; $this->emit('mirror_err', ['index' => $i, 'error' => $e->getMessage()]);
+                if ($this->policy === 'fail_fast') throw $e;
+            }
+        }
+        return $data;
+    }
+
+    // delegate seek/eof/tell/close to $source
+    public function seek(int $o, int $w = SEEK_SET): void { if ($this->source instanceof SeekableStreamInterface) $this->source->seek($o, $w); else throw new \LogicException('Source not seekable'); }
+    public function eof(): bool { return $this->source->eof(); }
+    public function tell(): int { return $this->source->tell(); }
+    public function close(): void { $this->source->close(); /* leave sinks open */ }
+    public function getSize(): ?int { return $this->source->getSize(); }
+    public function getMetadata(?string $k = null): mixed { return $this->source->getMetadata($k); }
+    private function emit(string $e, array $c): void { if ($this->onEvent) ($this->onEvent)($e, $c); }
+}
+```
+
+---
+
+## Gotchas & guidance
+
+* **Back-pressure**: the tee is only as fast as the slowest sink. For production, combine with `BufferedStream` or the **stage-then-fan-out** pattern.
+* **Partial writes**: always loop until each sink writes the full chunk, or handle/throw based on policy.
+* **Atomicity**: the tee can’t make multi-sink writes atomic. If you need atomic **finalization**, write each sink to a temp and then `rename()` them as a final step (2-phase commit-ish).
+* **Closing**: decide who owns the sinks. Defaulting to `close_all` is convenient; `leave_open` is safer for shared sinks.
+* **Telemetry**: wire `onEvent` into your logger; it’s invaluable for diagnosing drift in best-effort mode.
+
+---
+
+If you want, I can tailor `TeeWriter/TeeReader` to your exact interfaces (and add a small `XStream::tee([...])` factory helper) so it plugs straight into your driver code.
+
+
+
+
+
+tell me about buffered streams
+
+
+
+
+Buffered streams are a **decorator pattern** around your base stream.
+They add a userland buffer so that lots of small reads/writes don’t hammer the underlying stream one sys-call at a time. Think of it like wrapping `fread`/`fwrite` with a bigger, smarter cache in PHP code.
+
+---
+
+## Why bother?
+
+* **Performance**
+  Reading 1 byte at a time from disk or a network socket is *slow*. A `BufferedStream` might fetch 8 KB at once, then serve you 1-byte reads out of that buffer.
+
+* **Convenience**
+  You can implement helpers like `readLine()`, `readUntil()`, or `peek()` more easily with a buffer.
+
+* **Consistency across backends**
+  Some drivers (S3, HTTP) only support range requests. A buffered wrapper lets you normalize them to normal stream reads.
+
+---
+
+## How it works
+
+### Buffered read
+
+* On `read($len)`:
+
+  * If the buffer has enough bytes → serve from buffer, adjust pointers.
+  * If not → pull a larger chunk (e.g. 8 KB) from the underlying stream, stash it, then serve the request.
+* Expose helpers: `peek($len)` (look at buffer without consuming), `readLine()` (scan buffer for `\n`).
+
+### Buffered write
+
+* On `write($data)`:
+
+  * Append to a write buffer.
+  * If buffer exceeds threshold (e.g. 8 KB), flush it to the underlying stream in one `fwrite`.
+* On `flush()`, push any pending bytes.
+* On `close()`, flush before closing.
+
+---
+
+## Usage examples
+
+### Buffered reads
+
+```php
+use Orryv\X\Stream\{FileStream, BufferedStream};
+
+// Underlying file
+$raw = new FileStream('/var/log/huge.log', 'rb');
+
+// Wrap with 64 KB read buffer
+$buf = new BufferedStream($raw, readBufferSize: 64 * 1024);
+
+// Caller does tiny reads, but they are served from the big buffer
+while (!$buf->eof()) {
+    $char = $buf->read(1);  // doesn't hit the file each time
+    // ... parse character ...
+}
+$buf->close();
+```
+
+### Buffered writes
+
+```php
+use Orryv\X\Stream\{FileStream, BufferedStream};
+
+// File opened for write
+$raw = new FileStream('/tmp/output.csv', 'c+b');
+$buf = new BufferedStream($raw, writeBufferSize: 16 * 1024);
+
+foreach ($rows as $row) {
+    $line = implode(',', $row) . "\n";
+    $buf->write($line);   // goes into buffer
+}
+$buf->flush();            // push to disk
+$buf->close();
+```
+
+### Peek + readLine
+
+```php
+// Suppose BufferedStream implements helper methods
+$line = $buf->readLine();    // read until "\n"
+$peek = $buf->peek(5);       // look ahead without consuming
+```
+
+---
+
+## Design tips
+
+* **Buffer sizes**: pick sensible defaults (`8 KB` or `64 KB`); allow constructor args to override.
+* **Dual buffer**: keep separate read/write buffers, so they don’t interfere.
+* **Seek invalidates buffer**: if you `seek()`, clear any buffered state (you can’t guarantee coherence).
+* **EOF detection**: careful—EOF only true when underlying stream EOF **and** read buffer is empty.
+* **Flush on close**: always flush write buffer before closing underlying stream.
+* **Error handling**: if underlying `read`/`write` throws, clear buffer and rethrow.
+* **Composition**: works great combined with `RetryStream` or `TeeStream`.
+
+---
+
+## When to use BufferedStream
+
+* **Parsing text protocols** (CSV, JSONL, log files): lots of small reads.
+* **Network streams**: minimize roundtrips by batching.
+* **File writes with small appends**: fewer syscalls.
+* **Drivers with expensive underlying ops**: e.g., S3 range requests, HTTP chunked transfer.
+
+---
+
+Would you like me to sketch a `BufferedStream` implementation for your `StreamInterface` (read/write/seek) so you can drop it in alongside `RetryStream` and `TeeStream`?
