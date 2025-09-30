@@ -39,6 +39,22 @@ $bridge->seek(0);
 echo $bridge->read(7); // outputs 'payload'
 ```
 
+### Wrap existing PHP resources
+
+```php
+$handle = fopen('php://temp', 'c+b');
+
+// Keep using decorators like buffering + retry even when you start with a bare resource
+$stream = XStream::fromResource($handle, [
+    'buffered' => true,
+]);
+
+$stream->write('payload');
+$stream->seek(0);
+echo $stream->read(7);
+$stream->close();
+```
+
 ### Download over HTTP with resume support
 
 ```php
