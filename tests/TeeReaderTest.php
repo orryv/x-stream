@@ -84,6 +84,77 @@ final class TeeReaderTest extends TestCase
         $this->assertSame('payload', $audit->read(1024));
     }
 
+    public function testOnEventTracksMirrorLifecycle(): void
+    {
+        $events = [];
+        $source = new MemoryStream('ping');
+        $sink = new MemoryStream();
+        $failing = new class implements WritableStreamInterface {
+            public function write(string $data): int
+            {
+                throw new \RuntimeException('mirror boom');
+            }
+
+            public function flush(): void
+            {
+            }
+
+            public function close(): void
+            {
+            }
+
+            public function getSize(): ?int
+            {
+                return null;
+            }
+
+            public function tell(): int
+            {
+                return 0;
+            }
+
+            public function eof(): bool
+            {
+                return true;
+            }
+
+            public function getMetadata(?string $key = null): mixed
+            {
+                return null;
+            }
+
+            public function detach(): mixed
+            {
+                return null;
+            }
+        };
+
+        $reader = new TeeReader(
+            $source,
+            [$sink, $failing],
+            policy: 'best_effort',
+            closeSource: false,
+            closeSinks: false,
+            onEvent: static function (string $event, array $context) use (&$events): void {
+                $events[] = [$event, $context];
+            }
+        );
+
+        try {
+            $reader->read(4);
+            $this->fail('Expected StreamReadException was not thrown');
+        } catch (StreamReadException $exception) {
+            // Expected for the failing sink.
+        }
+
+        $sink->seek(0);
+        $this->assertSame('ping', $sink->read(1024));
+        $this->assertSame([
+            ['mirror_ok', ['index' => 0, 'bytes' => 4]],
+            ['mirror_err', ['index' => 1, 'error' => 'mirror boom']],
+        ], $events);
+    }
+
     public function testSeekPropagatesToSeekableSinks(): void
     {
         $source = new MemoryStream('abcdef');

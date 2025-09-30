@@ -82,6 +82,75 @@ final class TeeWriterTest extends TestCase
         $this->assertSame('payload', $sink->read(1024));
     }
 
+    public function testOnEventCapturesWriteLifecycle(): void
+    {
+        $events = [];
+        $sink = new MemoryStream();
+        $failing = new class implements WritableStreamInterface {
+            public function write(string $data): int
+            {
+                throw new \RuntimeException('write boom');
+            }
+
+            public function flush(): void
+            {
+            }
+
+            public function close(): void
+            {
+            }
+
+            public function getSize(): ?int
+            {
+                return null;
+            }
+
+            public function tell(): int
+            {
+                return 0;
+            }
+
+            public function eof(): bool
+            {
+                return true;
+            }
+
+            public function getMetadata(?string $key = null): mixed
+            {
+                return null;
+            }
+
+            public function detach(): mixed
+            {
+                return null;
+            }
+        };
+
+        $writer = new TeeWriter(
+            [$sink, $failing],
+            chunkSize: 4,
+            policy: 'best_effort',
+            closeSinks: false,
+            onEvent: static function (string $event, array $context) use (&$events): void {
+                $events[] = [$event, $context];
+            }
+        );
+
+        try {
+            $writer->write('test');
+            $this->fail('Expected StreamWriteException was not thrown');
+        } catch (StreamWriteException $exception) {
+            // Expected for the failing sink.
+        }
+
+        $sink->seek(0);
+        $this->assertSame('test', $sink->read(1024));
+        $this->assertSame([
+            ['write_ok', ['index' => 0, 'bytes' => 4]],
+            ['write_err', ['index' => 1, 'error' => 'write boom']],
+        ], $events);
+    }
+
     public function testFlushAndCloseHonourFlags(): void
     {
         $sink = new class implements WritableStreamInterface, SeekableStreamInterface {
