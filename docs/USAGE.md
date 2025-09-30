@@ -22,6 +22,23 @@ while (!$stream->eof()) {
 $stream->close();
 ```
 
+### Interoperability with PSR-7 streams
+
+```php
+use Orryv\XStream\XStream;
+
+$xStream = XStream::file('/tmp/data.bin', 'c+b');
+$psrStream = XStream::asPsrStream($xStream);      // expose as Psr\Http\Message\StreamInterface
+
+// work with any PSR-7 compatible HTTP client or middleware
+$psrStream->write('payload');
+
+// wrap the PSR stream back into an Orryv\XStream instance when you need advanced helpers again
+$bridge = XStream::fromPsrStream($psrStream);
+$bridge->seek(0);
+echo $bridge->read(7); // outputs 'payload'
+```
+
 ### Download over HTTP with resume support
 
 ```php
