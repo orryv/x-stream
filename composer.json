@@ -10,7 +10,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Orryv\\XStream\\": "src/"
+            "Orryv\\": "src/"
         }
     },
     "autoload-dev": {
