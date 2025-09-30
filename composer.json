@@ -1,0 +1,24 @@
+{
+    "name": "orryv/x-stream",
+    "description": "Composable stream abstractions for Orryv storage drivers.",
+    "type": "library",
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Orryv\\XStream\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Orryv\\XStream\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
+    }
+}
