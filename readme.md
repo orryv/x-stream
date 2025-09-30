@@ -1050,7 +1050,7 @@ Here’s a clean, extensible layout:
 # Interfaces (tiny, composable)
 
 ```php
-namespace Orryv\X\Stream;
+namespace Orryv\XStream;
 
 interface StreamInterface
 {
@@ -1222,9 +1222,9 @@ awesome — here are *only* usage-side snippets to show how you’d call the str
 ## 1) XStream factory (ergonomic)
 
 ```php
-use Orryv\X\Stream\XStream;
-use Orryv\X\Stream\ReadableStreamInterface;
-use Orryv\X\Stream\WritableStreamInterface;
+use Orryv\XStream\XStream;
+use Orryv\XStream\ReadableStreamInterface;
+use Orryv\XStream\WritableStreamInterface;
 
 try {
     // Read whole file
@@ -1250,7 +1250,7 @@ try {
 ## 2) FileStream (direct)
 
 ```php
-use Orryv\X\Stream\FileStream;
+use Orryv\XStream\FileStream;
 
 $fs = new FileStream('/var/log/app.log', 'rb');
 $fs->seek(-1024, SEEK_END);        // last KB
@@ -1261,7 +1261,7 @@ $fs->close();
 ## 3) MemoryStream
 
 ```php
-use Orryv\X\Stream\MemoryStream;
+use Orryv\XStream\MemoryStream;
 
 // Build a payload in memory, then read it back
 $mem = new MemoryStream();
@@ -1275,7 +1275,7 @@ $mem->close();
 ## 4) TempStream (php://temp style)
 
 ```php
-use Orryv\X\Stream\TempStream;
+use Orryv\XStream\TempStream;
 
 // Holds up to N bytes in memory, then spills to temp file
 $tmp = new TempStream(limitBytes: 2_000_000);
@@ -1291,8 +1291,8 @@ $tmp->close(); // removes the underlying temp file
 ## 5) RetryStream (decorator)
 
 ```php
-use Orryv\X\Stream\FileStream;
-use Orryv\X\Stream\RetryStream;
+use Orryv\XStream\FileStream;
+use Orryv\XStream\RetryStream;
 
 // Auto-reopen on transient failures and restore position
 $base  = new FileStream('/mnt/nfs/video.mp4', 'rb'); // network FS might drop handles
@@ -1306,8 +1306,8 @@ $retry->close();
 ## 6) BufferedStream (decorator)
 
 ```php
-use Orryv\X\Stream\FileStream;
-use Orryv\X\Stream\BufferedStream;
+use Orryv\XStream\FileStream;
+use Orryv\XStream\BufferedStream;
 
 // Wrap a small-chunk reader with a larger userland buffer (e.g., for many small reads)
 $base = new FileStream('/var/data/huge.ndjson', 'rb');
@@ -1329,7 +1329,7 @@ $buf->close();
 ## 7) TeeStream (decorator)
 
 ```php
-use Orryv\X\Stream\{FileStream, TeeStream};
+use Orryv\XStream\{FileStream, TeeStream};
 
 // Mirror writes to two destinations (file + log), or mirror reads to a sink
 $destA = new FileStream('/var/data/upload.bin', 'c+b');
@@ -1348,7 +1348,7 @@ $source->close();
 ## 8) Combining them (File → Buffered → Retry)
 
 ```php
-use Orryv\X\Stream\{FileStream, BufferedStream, RetryStream};
+use Orryv\XStream\{FileStream, BufferedStream, RetryStream};
 
 $stream = new RetryStream(
     new BufferedStream(
@@ -1391,7 +1391,7 @@ $out->close();
 ## 10) Copy file-to-file, safely
 
 ```php
-use Orryv\X\Stream\{XStream};
+use Orryv\XStream\{XStream};
 
 $src = XStream::file('/srv/a/big.bin', 'rb');
 $dst = XStream::file('/srv/b/big.bin.part', 'c+b');
@@ -1421,7 +1421,7 @@ Here’s a punchy checklist. You don’t need to do all of it at once—start wi
 Create a tiny hierarchy so callers can react precisely:
 
 ```php
-namespace Orryv\X\Stream\Exception;
+namespace Orryv\XStream\Exception;
 
 class StreamException extends \RuntimeException {}
 class AlreadyOpen extends StreamException {}
@@ -1601,7 +1601,7 @@ Both accept policies so you control behavior when one sink is slow or fails.
 ### 1) Write once → 3 destinations
 
 ```php
-use Orryv\X\Stream\{FileStream, RetryStream, TeeWriter};
+use Orryv\XStream\{FileStream, RetryStream, TeeWriter};
 
 // Make resilient sinks
 $primary = new RetryStream(new FileStream('/data/out/main.bin', 'c+b'));
@@ -1623,7 +1623,7 @@ $src->close();
 ### 2) Read from one → tee reads into a side log
 
 ```php
-use Orryv\X\Stream\{FileStream, TeeReader, FileStream as SinkFile};
+use Orryv\XStream\{FileStream, TeeReader, FileStream as SinkFile};
 
 $src = new FileStream('/var/log/app.log', 'rb');
 // log file reads to an audit trail
@@ -1693,7 +1693,7 @@ Below is a compact version that handles:
 * flushing/closing policy.
 
 ```php
-namespace Orryv\X\Stream;
+namespace Orryv\XStream;
 
 final class TeeWriter implements WritableStreamInterface
 {
@@ -1934,7 +1934,7 @@ They add a userland buffer so that lots of small reads/writes don’t hammer the
 ### Buffered reads
 
 ```php
-use Orryv\X\Stream\{FileStream, BufferedStream};
+use Orryv\XStream\{FileStream, BufferedStream};
 
 // Underlying file
 $raw = new FileStream('/var/log/huge.log', 'rb');
@@ -1953,7 +1953,7 @@ $buf->close();
 ### Buffered writes
 
 ```php
-use Orryv\X\Stream\{FileStream, BufferedStream};
+use Orryv\XStream\{FileStream, BufferedStream};
 
 // File opened for write
 $raw = new FileStream('/tmp/output.csv', 'c+b');
