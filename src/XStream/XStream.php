@@ -51,6 +51,27 @@ final class XStream
         return new MemoryStream($initial);
     }
 
+    public static function http(string $url, array $options = []): StreamInterface
+    {
+        $stream = new HttpStream($url, $options);
+
+        $retry = $options['retry'] ?? true;
+        if ($retry) {
+            $retries = $options['retries'] ?? 3;
+            $delayMs = $options['retry_delay_ms'] ?? 2;
+            $restore = $options['restore_position'] ?? true;
+            $stream = new RetryStream($stream, (int)$retries, (int)$delayMs, (bool)$restore);
+        }
+
+        if (!empty($options['buffered'])) {
+            $readSize = $options['buffer_read_size'] ?? 65536;
+            $writeSize = $options['buffer_write_size'] ?? 65536;
+            $stream = new BufferedStream($stream, (int)$readSize, (int)$writeSize);
+        }
+
+        return $stream;
+    }
+
     public static function temp(int $limitBytes = 2_000_000): TempStream
     {
         return new TempStream($limitBytes);

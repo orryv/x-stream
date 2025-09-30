@@ -1,3 +1,9 @@
+# XStream
+
+This repository implements composable stream primitives for PHP, including file, memory, temp, retry, buffered, tee, and now HTTP-backed streams. For practical recipes—such as downloading large files with retry + resume support via `XStream::http()`—see the [usage guide](docs/USAGE.md).
+
+---
+
 The following is a discussion with chatGPT, I need you to implement what it says. I decided to make a seperate project called "XStream", so this is the project. Now I need you to create the code, tests and docs:
 
 
