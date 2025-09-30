@@ -50,6 +50,34 @@ final class FileStreamTest extends TestCase
         }
     }
 
+    public function testAppendModeReopenPreservesEndPosition(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'xstream');
+        self::assertIsString($path);
+
+        try {
+            $stream = new FileStream($path, 'ab+');
+            $stream->write('foo');
+            $stream->seek(0);
+            $stream->write('bar');
+            $stream->seek(0);
+            $this->assertSame('foobar', $stream->read(6));
+            $this->assertTrue($stream->isAppendMode());
+
+            $stream->seek(0, SEEK_END);
+            $endPosition = $stream->tell();
+
+            $stream->reopen();
+
+            $this->assertTrue($stream->isAppendMode());
+            $this->assertSame($endPosition, $stream->tell());
+
+            $stream->close();
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function testRetryStreamReopensClosedFileHandle(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'xstream');
