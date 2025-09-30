@@ -29,6 +29,14 @@ while (!$stream->eof()) {
 $stream->close();
 ```
 
+Write to a new file and close the handle when you're done:
+
+```php
+$stream = XStream::file('/path/output.txt', 'wb');
+$stream->write("Hello from XStream!\n");
+$stream->close();
+```
+
 Download over HTTP with resume support and save to disk:
 
 ```php

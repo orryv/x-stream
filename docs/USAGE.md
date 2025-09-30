@@ -93,6 +93,17 @@ $tail = $log->read(2048);
 $log->close();
 ```
 
+Looking for the simplest create/write/close flow? The [quick-start snippet](../readme.md#quick-start) shows the same pattern via
+`XStream::file()`:
+
+```php
+use Orryv\XStream\XStream;
+
+$stream = XStream::file('/path/output.txt', 'wb');
+$stream->write("Hello from XStream!\n");
+$stream->close();
+```
+
 ### Atomic uploads
 
 ```php
