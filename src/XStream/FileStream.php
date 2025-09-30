@@ -85,8 +85,12 @@ class FileStream implements DuplexStreamInterface, SeekableStreamInterface, Reop
         $position = $this->position;
         $this->closeInternal();
         $this->open();
-        if ($this->seekable && !$this->append && $position > 0) {
-            $this->restorePosition($position);
+        if ($this->seekable) {
+            if ($this->append) {
+                $this->seek(0, SEEK_END);
+            } elseif ($position > 0) {
+                $this->restorePosition($position);
+            }
         }
     }
 
