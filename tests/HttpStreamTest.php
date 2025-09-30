@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Orryv\XStream\Tests;
 
+use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\HttpStream;
 use Orryv\XStream\XStream;
@@ -135,6 +136,87 @@ final class HttpStreamTest extends TestCase
         $this->assertContains('Range: bytes=3-', $requests[1]['headers']);
     }
 
+    public function testReopenDoesNotSendRangeWhenResumeDisallowed(): void
+    {
+        $url = 'mockhttp://example.com/no-resume';
+        MockHttpStreamWrapper::queueResponse($url, [
+            'status' => 200,
+            'body' => 'abcdef',
+            'headers' => [
+                'Content-Length: 6',
+                'Accept-Ranges: bytes',
+            ],
+        ]);
+        MockHttpStreamWrapper::queueResponse($url, [
+            'status' => 200,
+            'body' => 'abcdef',
+            'headers' => [
+                'Content-Length: 6',
+            ],
+        ]);
+
+        $stream = new HttpStream($url, ['allow_resume' => false]);
+        $this->assertSame('abc', $stream->read(3));
+        $stream->reopen();
+        $this->assertSame('abc', $stream->read(3));
+        $this->assertSame('def', $stream->read(3));
+
+        $requests = MockHttpStreamWrapper::requestsFor($url);
+        $this->assertCount(2, $requests);
+        $this->assertArrayNotHasKey('range', $requests[1]['headerMap']);
+        $this->assertNotContains('Range: bytes=3-', $requests[1]['headers']);
+    }
+
+    public function testCloseAndDetachPreventFurtherAccess(): void
+    {
+        $url = 'mockhttp://example.com/lifecycle';
+        MockHttpStreamWrapper::queueResponse($url, [
+            'status' => 200,
+            'body' => 'payload',
+            'headers' => ['Content-Length: 7'],
+        ]);
+
+        $stream = new HttpStream($url);
+        $stream->close();
+
+        try {
+            $stream->read(1);
+            $this->fail('Expected read() on a closed stream to throw.');
+        } catch (StreamClosedException $exception) {
+            $this->assertSame('HTTP stream is closed', $exception->getMessage());
+        }
+
+        try {
+            $stream->reopen();
+            $this->fail('Expected reopen() on a closed stream to throw.');
+        } catch (StreamClosedException $exception) {
+            $this->assertSame('Cannot reopen a closed HTTP stream', $exception->getMessage());
+        }
+
+        MockHttpStreamWrapper::queueResponse($url, [
+            'status' => 200,
+            'body' => 'payload',
+            'headers' => ['Content-Length: 7'],
+        ]);
+
+        $detachedStream = new HttpStream($url);
+        $detachedStream->detach();
+
+        try {
+            $detachedStream->read(1);
+            $this->fail('Expected read() on a detached stream to throw.');
+        } catch (StreamClosedException $exception) {
+            $this->assertSame('HTTP stream has been detached', $exception->getMessage());
+        }
+
+        try {
+            $detachedStream->reopen();
+            $this->fail('Expected reopen() on a detached stream to throw.');
+        } catch (StreamClosedException $exception) {
+            $this->assertSame('Cannot reopen a detached HTTP stream', $exception->getMessage());
+        }
+    }
+
     public function testFactoryAppliesRetryAndBuffering(): void
     {
         $url = 'mockhttp://example.com/factory';
@@ -158,7 +240,13 @@ final class MockHttpStreamWrapper
 {
     /** @var array<string, array<int, array<string, mixed>>> */
     private static array $responses = [];
-    /** @var array<string, array<int, array{method:string,headers:string[]}>> */
+    /**
+     * @var array<string, array<int, array{
+     *     method:string,
+     *     headers:string[],
+     *     headerMap:array<string, array<int, string>>
+     * }>>
+     */
     private static array $requests = [];
 
     /** @var resource|null */
@@ -194,7 +282,7 @@ final class MockHttpStreamWrapper
     }
 
     /**
-     * @return array<int, array{method:string,headers:string[]}>
+     * @return array<int, array{method:string,headers:string[],headerMap:array<string, array<int, string>>}>
      */
     public static function requestsFor(string $url): array
     {
@@ -282,9 +370,24 @@ final class MockHttpStreamWrapper
             }
         }
 
+        $headerMap = [];
+        foreach ($headers as $line) {
+            $parts = explode(':', $line, 2);
+            if (count($parts) < 2) {
+                continue;
+            }
+            $name = strtolower(trim($parts[0]));
+            $value = trim($parts[1]);
+            if ($name === '') {
+                continue;
+            }
+            $headerMap[$name][] = $value;
+        }
+
         return [
             'method' => $method,
             'headers' => $headers,
+            'headerMap' => $headerMap,
         ];
     }
 
