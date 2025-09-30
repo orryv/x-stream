@@ -4,6 +4,8 @@ The `Orryv\\X\\Stream` package provides a collection of composable stream implem
 
 ## Factory helpers (`XStream`)
 
+Need to observe how data flows across tees or audit sinks? The factory helpers expose the same [tee event callbacks](#tee-event-callbacks) that the concrete classes provide, so you can wire monitoring straight into your pipelines.
+
 ```php
 use Orryv\XStream\XStream;
 
@@ -149,6 +151,8 @@ $buffered->close();
 
 ## TeeWriter: fan-out writes
 
+Tee streams also support lightweight event hooks—see [Tee event callbacks](#tee-event-callbacks) for details.
+
 ```php
 $primary = new FileStream('/var/backups/primary.log', 'ab');
 $secondary = new FileStream('/var/backups/secondary.log', 'ab');
@@ -161,6 +165,8 @@ $tee->close();
 
 ## TeeReader: mirror reads
 
+Looking for callback hooks while mirroring? Jump to [Tee event callbacks](#tee-event-callbacks).
+
 ```php
 $source = new FileStream('/var/uploads/incoming.bin', 'rb');
 $audit = new FileStream('/var/audit/incoming.bin', 'c+b');
@@ -171,6 +177,61 @@ while (!$reader->eof()) {
     // stream $chunk to a client
 }
 $reader->close();
+```
+
+### Tee event callbacks
+
+Both `TeeWriter` and `TeeReader` accept an optional `onEvent` callable. The closure is invoked with the event name and a context payload whenever work is attempted for a sink.
+
+#### TeeWriter events
+
+| Event        | Context keys                        | Description |
+|--------------|--------------------------------------|-------------|
+| `write_ok`   | `index`, `bytes`                     | Bytes were successfully written to sink `index`.
+| `write_err`  | `index`, `error`                     | A write failed with the provided error message.
+| `flush_ok`   | `index`                              | `flush()` succeeded for the sink.
+| `flush_err`  | `index`, `error`                     | `flush()` threw an exception.
+| `close_ok`   | `index`                              | `close()` succeeded when the tee is configured to close sinks.
+| `close_err`  | `index`, `error`                     | `close()` threw an exception while closing a sink.
+
+#### TeeReader events
+
+| Event         | Context keys            | Description |
+|---------------|-------------------------|-------------|
+| `mirror_ok`   | `index`, `bytes`        | Bytes were mirrored to sink `index`.
+| `mirror_err`  | `index`, `error`        | Mirroring to the sink failed with an error.
+
+#### Example: aggregate tee metrics
+
+```php
+use Orryv\XStream\XStream;
+
+$primary = XStream::file('/var/backups/primary.log', 'ab');
+$secondary = XStream::file('/var/backups/secondary.log', 'ab');
+$audit = XStream::file('/var/audit/incoming.bin', 'c+b');
+
+$events = [];
+
+$teeWriter = XStream::teeWriter([
+    $primary,
+    $secondary,
+], onEvent: function (string $event, array $context) use (&$events) {
+    $events[] = [$event, $context['index'], $context['bytes'] ?? null];
+});
+
+$teeReader = XStream::teeReader(
+    XStream::file('/var/uploads/incoming.bin', 'rb'),
+    [$audit],
+    onEvent: function (string $event, array $context) use (&$events) {
+        $events[] = [$event, $context['index'], $context['bytes'] ?? null];
+    }
+);
+
+// ... use $teeWriter / $teeReader ...
+
+foreach ($events as [$event, $index, $bytes]) {
+    error_log(sprintf('tee[%d] %s %s', $index, $event, $bytes ?? ''));
+}
 ```
 
 ## NullStream sink
