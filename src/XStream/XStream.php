@@ -2,7 +2,10 @@
 
 namespace Orryv\XStream;
 
+use Orryv\XStream\Bridge\FromPsrStream;
+use Orryv\XStream\Bridge\PsrStreamAdapter;
 use Orryv\XStream\Interfaces\ReadableStreamInterface;
+use Psr\Http\Message\StreamInterface as PsrStreamInterface;
 
 final class XStream
 {
@@ -120,5 +123,15 @@ final class XStream
         ?callable $onEvent = null
     ): TeeReader {
         return new TeeReader($source, $sinks, $policy, $closeSource, $closeSinks, $onEvent);
+    }
+
+    public static function asPsrStream(StreamInterface $stream): PsrStreamInterface
+    {
+        return new PsrStreamAdapter($stream);
+    }
+
+    public static function fromPsrStream(PsrStreamInterface $stream): FromPsrStream
+    {
+        return new FromPsrStream($stream);
     }
 }
