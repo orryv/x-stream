@@ -7,6 +7,10 @@ use Orryv\XStream\Exception\StreamOperationException;
 use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\Exception\StreamSeekException;
 use Orryv\XStream\Exception\StreamWriteException;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\ModeAwareStreamInterface;
+use Orryv\XStream\Interfaces\ReopenableStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
 
 class FileStream implements DuplexStreamInterface, SeekableStreamInterface, ReopenableStreamInterface, ModeAwareStreamInterface
 {

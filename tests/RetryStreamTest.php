@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Orryv\XStream\Tests;
 
-use Orryv\XStream\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\ModeAwareStreamInterface;
+use Orryv\XStream\Interfaces\ReopenableStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
 use Orryv\XStream\MemoryStream;
-use Orryv\XStream\ModeAwareStreamInterface;
 use Orryv\XStream\RetryStream;
-use Orryv\XStream\ReopenableStreamInterface;
-use Orryv\XStream\SeekableStreamInterface;
 use PHPUnit\Framework\TestCase;
 
 final class RetryStreamTest extends TestCase

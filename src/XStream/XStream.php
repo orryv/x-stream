@@ -1,16 +1,7 @@
 <?php
 
-namespace Orryv;
+namespace Orryv\XStream;
 
-use Orryv\XStream\BufferedStream;
-use Orryv\XStream\FileStream;
-use Orryv\XStream\MemoryStream;
-use Orryv\XStream\NullStream;
-use Orryv\XStream\RetryStream;
-use Orryv\XStream\StreamInterface;
-use Orryv\XStream\TempStream;
-use Orryv\XStream\TeeReader;
-use Orryv\XStream\TeeWriter;
 use Orryv\XStream\Interfaces\ReadableStreamInterface;
 
 final class XStream

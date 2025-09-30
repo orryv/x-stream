@@ -1,6 +1,6 @@
 <?php
 
-namespace Orryv\XStream;
+namespace Orryv\XStream\Interfaces;
 
 interface ModeAwareStreamInterface
 {

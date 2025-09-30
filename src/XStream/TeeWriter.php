@@ -4,6 +4,7 @@ namespace Orryv\XStream;
 
 use Orryv\XStream\Exception\StreamSeekException;
 use Orryv\XStream\Exception\StreamWriteException;
+use Orryv\XStream\Interfaces\WritableStreamInterface;
 
 final class TeeWriter implements WritableStreamInterface
 {

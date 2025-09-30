@@ -3,6 +3,8 @@
 namespace Orryv\XStream;
 
 use Orryv\XStream\Exception\StreamClosedException;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
 
 final class NullStream implements DuplexStreamInterface, SeekableStreamInterface
 {

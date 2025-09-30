@@ -1,6 +1,8 @@
 <?php
 
-namespace Orryv\XStream;
+namespace Orryv\XStream\Interfaces;
+
+use Orryv\XStream\StreamInterface;
 
 interface ReadableStreamInterface extends StreamInterface
 {

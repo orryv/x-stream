@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Orryv\XStream\Tests;
 
 use Orryv\XStream\BufferedStream;
-use Orryv\XStream\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
 use Orryv\XStream\MemoryStream;
-use Orryv\XStream\SeekableStreamInterface;
 use PHPUnit\Framework\TestCase;
 
 final class BufferedStreamTest extends TestCase

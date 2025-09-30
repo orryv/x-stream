@@ -6,10 +6,10 @@ namespace Orryv\XStream\Tests;
 
 use Orryv\XStream\Exception\StreamSeekException;
 use Orryv\XStream\Exception\StreamWriteException;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
+use Orryv\XStream\Interfaces\WritableStreamInterface;
 use Orryv\XStream\MemoryStream;
-use Orryv\XStream\SeekableStreamInterface;
 use Orryv\XStream\TeeWriter;
-use Orryv\XStream\WritableStreamInterface;
 use PHPUnit\Framework\TestCase;
 
 final class TeeWriterTest extends TestCase

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Orryv\XStream\Tests;
 
 use Orryv\XStream\Exception\StreamReadException;
+use Orryv\XStream\Interfaces\ReadableStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
+use Orryv\XStream\Interfaces\WritableStreamInterface;
 use Orryv\XStream\MemoryStream;
-use Orryv\XStream\ReadableStreamInterface;
-use Orryv\XStream\SeekableStreamInterface;
 use Orryv\XStream\TeeReader;
-use Orryv\XStream\WritableStreamInterface;
 use PHPUnit\Framework\TestCase;
 
 final class TeeReaderTest extends TestCase

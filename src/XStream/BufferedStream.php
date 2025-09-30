@@ -6,6 +6,10 @@ use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\Exception\StreamSeekException;
 use Orryv\XStream\Exception\StreamWriteException;
 use Orryv\XStream\Exception\StreamOperationException;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\ReadableStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
+use Orryv\XStream\Interfaces\WritableStreamInterface;
 
 final class BufferedStream implements DuplexStreamInterface, SeekableStreamInterface
 {

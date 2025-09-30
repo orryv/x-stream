@@ -5,6 +5,12 @@ namespace Orryv\XStream;
 use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\Exception\StreamSeekException;
 use Orryv\XStream\Exception\StreamWriteException;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\ModeAwareStreamInterface;
+use Orryv\XStream\Interfaces\ReopenableStreamInterface;
+use Orryv\XStream\Interfaces\ReadableStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
+use Orryv\XStream\Interfaces\WritableStreamInterface;
 
 final class RetryStream implements DuplexStreamInterface, SeekableStreamInterface
 {

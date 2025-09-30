@@ -5,6 +5,8 @@ namespace Orryv\XStream;
 use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\Exception\StreamSeekException;
+use Orryv\XStream\Interfaces\DuplexStreamInterface;
+use Orryv\XStream\Interfaces\SeekableStreamInterface;
 
 final class MemoryStream implements DuplexStreamInterface, SeekableStreamInterface
 {
