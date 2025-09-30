@@ -22,6 +22,31 @@ while (!$stream->eof()) {
 $stream->close();
 ```
 
+### Download over HTTP with resume support
+
+```php
+$source = XStream::http('https://example.com/archive.zip', [
+    'headers' => [
+        'Authorization' => 'Bearer ' . $token,
+    ],
+    'retry' => true,           // automatic reopen + Range headers when possible
+    'buffered' => true,        // smoother large transfers
+    'buffer_read_size' => 256 * 1024,
+]);
+$target = XStream::file('/tmp/archive.zip', 'wb');
+
+while (!$source->eof()) {
+    $chunk = $source->read(256 * 1024);
+    if ($chunk === '') {
+        break;
+    }
+    $target->write($chunk);
+}
+
+$source->close();
+$target->close();
+```
+
 ## FileStream
 
 ```php
