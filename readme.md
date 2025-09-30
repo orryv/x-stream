@@ -1,6 +1,6 @@
 # XStream
 
-This repository implements composable stream primitives for PHP, including file, memory, temp, retry, buffered, tee, and now HTTP-backed streams. It also ships with PSR-7 interoperability helpers so any `StreamInterface` can be bridged to or from third-party HTTP clients in one line. For practical recipes—such as downloading large files with retry + resume support via `XStream::http()`—see the [usage guide](docs/USAGE.md).
+This repository implements composable stream primitives for PHP, including file, memory, temp, retry, buffered, tee, and now HTTP-backed streams. It also ships with PSR-7 interoperability helpers so any `StreamInterface` can be bridged to or from third-party HTTP clients in one line. You can even wrap existing PHP resources through `XStream::fromResource()` to keep using buffering or retry decorators. For practical recipes—such as downloading large files with retry + resume support via `XStream::http()`—see the [usage guide](docs/USAGE.md).
 
 ---
 
