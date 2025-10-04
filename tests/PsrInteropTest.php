@@ -6,7 +6,7 @@ use Orryv\XStream\Bridge\FromPsrStream;
 use Orryv\XStream\Bridge\PsrStreamAdapter;
 use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\MemoryStream;
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

@@ -10,7 +10,7 @@ use Orryv\XStream\MemoryStream;
 use Orryv\XStream\NullStream;
 use Orryv\XStream\RetryStream;
 use Orryv\XStream\TempStream;
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 use PHPUnit\Framework\TestCase;
 
 final class XStreamFactoryTest extends TestCase

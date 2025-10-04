@@ -13,7 +13,7 @@ composer require orryv/x-stream
 Read a local file with transparent retry and buffering:
 
 ```php
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 
 $stream = XStream::file('/var/data/report.csv', 'rb', [
     'retry' => true,

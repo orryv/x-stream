@@ -2,7 +2,7 @@
 
 namespace Orryv\XStream\Interfaces;
 
-use Orryv\XStream\StreamInterface;
+use Orryv\XStream\Interfaces\StreamInterface;
 
 interface ReadableStreamInterface extends StreamInterface
 {

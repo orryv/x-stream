@@ -4,8 +4,8 @@ namespace Orryv\XStream\Bridge;
 
 use Orryv\XStream\Interfaces\ReadableStreamInterface;
 use Orryv\XStream\Interfaces\SeekableStreamInterface;
+use Orryv\XStream\Interfaces\StreamInterface;
 use Orryv\XStream\Interfaces\WritableStreamInterface;
-use Orryv\XStream\StreamInterface;
 use Psr\Http\Message\StreamInterface as PsrStreamInterface;
 use RuntimeException;
 

@@ -1,10 +1,21 @@
 <?php
 
-namespace Orryv\XStream;
+namespace Orryv;
 
 use Orryv\XStream\Bridge\FromPsrStream;
 use Orryv\XStream\Bridge\PsrStreamAdapter;
+use Orryv\XStream\BufferedStream;
+use Orryv\XStream\FileStream;
+use Orryv\XStream\HttpStream;
 use Orryv\XStream\Interfaces\ReadableStreamInterface;
+use Orryv\XStream\Interfaces\StreamInterface;
+use Orryv\XStream\MemoryStream;
+use Orryv\XStream\NullStream;
+use Orryv\XStream\ResourceStream;
+use Orryv\XStream\RetryStream;
+use Orryv\XStream\TeeReader;
+use Orryv\XStream\TeeWriter;
+use Orryv\XStream\TempStream;
 use Psr\Http\Message\StreamInterface as PsrStreamInterface;
 
 final class XStream
