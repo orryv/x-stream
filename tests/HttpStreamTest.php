@@ -7,7 +7,7 @@ namespace Orryv\XStream\Tests;
 use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\Exception\StreamReadException;
 use Orryv\XStream\HttpStream;
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 use PHPUnit\Framework\TestCase;
 
 final class HttpStreamTest extends TestCase

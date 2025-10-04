@@ -7,7 +7,7 @@ namespace Orryv\XStream\Tests;
 use Orryv\XStream\BufferedStream;
 use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\ResourceStream;
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 use PHPUnit\Framework\TestCase;
 
 final class ResourceStreamTest extends TestCase

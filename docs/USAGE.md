@@ -1,13 +1,13 @@
 # XStream usage guide
 
-The `Orryv\\X\\Stream` package provides a collection of composable stream implementations that make file and memory IO predictable across storage drivers. This guide shows real-world scenarios for each building block.
+The `Orryv\\XStream` package provides a collection of composable stream implementations that make file and memory IO predictable across storage drivers. This guide shows real-world scenarios for each building block.
 
 ## Factory helpers (`XStream`)
 
 Need to observe how data flows across tees or audit sinks? The factory helpers expose the same [tee event callbacks](#tee-event-callbacks) that the concrete classes provide, so you can wire monitoring straight into your pipelines.
 
 ```php
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 
 // Read a local file with transparent retry + buffering
 $stream = XStream::file('/var/data/report.csv', 'rb', [
@@ -27,7 +27,7 @@ $stream->close();
 ### Interoperability with PSR-7 streams
 
 ```php
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 
 $xStream = XStream::file('/tmp/data.bin', 'c+b');
 $psrStream = XStream::asPsrStream($xStream);      // expose as Psr\Http\Message\StreamInterface
@@ -97,7 +97,7 @@ Looking for the simplest create/write/close flow? The [quick-start snippet](../r
 `XStream::file()`:
 
 ```php
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 
 $stream = XStream::file('/path/output.txt', 'wb');
 $stream->write("Hello from XStream!\n");
@@ -215,7 +215,7 @@ Both `TeeWriter` and `TeeReader` accept an optional `onEvent` callable. The clos
 #### Example: aggregate tee metrics
 
 ```php
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 
 $primary = XStream::file('/var/backups/primary.log', 'ab');
 $secondary = XStream::file('/var/backups/secondary.log', 'ab');

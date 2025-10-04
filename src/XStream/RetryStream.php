@@ -11,6 +11,7 @@ use Orryv\XStream\Interfaces\ReopenableStreamInterface;
 use Orryv\XStream\Interfaces\ReadableStreamInterface;
 use Orryv\XStream\Interfaces\SeekableStreamInterface;
 use Orryv\XStream\Interfaces\WritableStreamInterface;
+use Orryv\XStream\Interfaces\StreamInterface;
 
 final class RetryStream implements DuplexStreamInterface, SeekableStreamInterface
 {

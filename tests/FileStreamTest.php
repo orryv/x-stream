@@ -9,7 +9,7 @@ use Orryv\XStream\Exception\StreamClosedException;
 use Orryv\XStream\FileStream;
 use Orryv\XStream\MemoryStream;
 use Orryv\XStream\RetryStream;
-use Orryv\XStream\XStream;
+use Orryv\XStream;
 use PHPUnit\Framework\TestCase;
 
 final class FileStreamTest extends TestCase
